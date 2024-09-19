@@ -23,8 +23,6 @@ def extract_data(dt: date, base: str = "BRL") -> dict:
     else: 
         return response.json()
 
-result = extract_data(date(2021, 1, 1))
-
 # COMMAND ----------
 
 # MAGIC %md
@@ -32,25 +30,14 @@ result = extract_data(date(2021, 1, 1))
 
 # COMMAND ----------
 
-def list_of_tuples(data_json: dict) -> list:
+def insert_dt_import_column(df: object, column_date: str) -> object:
+    return df.withColumn("dt_import", lit(column_date))
+
+def export_data_to_df(data_json: dict, columns: list, **kwargs: dict) -> object:
     data = [(exchange, float(rate)) for exchange, rate in data_json.items()]
-    return data 
-
-data = list_of_tuples(result["rates"])
-df = spark.createDataFrame(data, schema=["exchange", "rate"])
-
-# COMMAND ----------
-
-display(df.head(5))
-
-# COMMAND ----------
-
-
-df= df.withColumn("dt_import", lit(result["date"]))
-
-# COMMAND ----------
-
-display(df.head(5))
+    df = spark.createDataFrame(data, schema=columns)
+    df = insert_dt_import_column(df, kwargs["dt_import"])
+    return df
 
 # COMMAND ----------
 
@@ -59,16 +46,18 @@ display(df.head(5))
 
 # COMMAND ----------
 
-year, mounth, day = result["date"].split("-")
-print(year, mounth, day)
+def save(df: object, dt_import: str) -> None:
+    year, mounth, day = dt_import.split("-")
+    path = f"dbfs:/databricks-results/bronze/{year}/{mounth}/{day}"
+    df.write.format("parquet")\
+        .mode("overwrite")\
+        .save(path)
+    logging.info(f"Data load with sucess to {path}")
 
 # COMMAND ----------
 
-display(dbutils.fs.ls("dbfs:/"))
+result = extract_data(date(2021, 1, 1))
+kwargs = {"dt_import": result["date"]}
+df = export_data_to_df(result["rates"], columns=["exchange", "rate"], **kwargs)
+save(df, dt_import=result["date"])
 
-# COMMAND ----------
-
-path = f"dbfs:/databricks-results/bronze/{year}/{mounth}/{day}"
-df.write.format("parquet")\
-    .mode("overwrite")\
-    .save(path)
