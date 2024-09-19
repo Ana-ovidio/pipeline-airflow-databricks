@@ -1,4 +1,9 @@
 # Databricks notebook source
+dbutils.widgets.text("data_execucao", "")
+data_execucao = dbutils.widgets.get("data_execucao")
+
+# COMMAND ----------
+
 import requests
 import logging
 from datetime import date
@@ -56,8 +61,12 @@ def save(df: object, dt_import: str) -> None:
 
 # COMMAND ----------
 
-result = extract_data(date(2021, 1, 1))
+result = extract_data(data_execucao)
 kwargs = {"dt_import": result["date"]}
 df = export_data_to_df(result["rates"], columns=["exchange", "rate"], **kwargs)
 save(df, dt_import=result["date"])
 
+
+# COMMAND ----------
+
+dbutils.fs.rm("dbfs:/databricks-results/", True)
